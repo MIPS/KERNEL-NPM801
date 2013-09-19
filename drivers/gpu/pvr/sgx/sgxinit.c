@@ -68,6 +68,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "srvkm.h"
 #include "ttrace.h"
 
+IMG_UINT32 g_ui32HostIRQCountSample = 0;
+
 #if defined(PVRSRV_USSE_EDM_STATUS_DEBUG)
 
 static const IMG_CHAR *SGXUKernelStatusString(IMG_UINT32 code)
@@ -231,10 +233,6 @@ static PVRSRV_ERROR InitDevInfo(PVRSRV_PER_PROCESS_DATA *psPerProc,
 #endif
 	psDevInfo->psKernelTASigBufferMemInfo = psInitInfo->hKernelTASigBufferMemInfo;
 	psDevInfo->psKernel3DSigBufferMemInfo = psInitInfo->hKernel3DSigBufferMemInfo;
-#if defined(SGX_FEATURE_VDM_CONTEXT_SWITCH) && defined(FIX_HW_BRN_31559)
-	psDevInfo->psKernelVDMSnapShotBufferMemInfo = (PVRSRV_KERNEL_MEM_INFO *)psInitInfo->hKernelVDMSnapShotBufferMemInfo;
-	psDevInfo->psKernelVDMCtrlStreamBufferMemInfo = (PVRSRV_KERNEL_MEM_INFO *)psInitInfo->hKernelVDMCtrlStreamBufferMemInfo;
-#endif
 #if defined(SGX_FEATURE_VDM_CONTEXT_SWITCH) && \
 	defined(FIX_HW_BRN_33657) && defined(SUPPORT_SECURE_33657_FIX)
 	psDevInfo->psKernelVDMStateUpdateBufferMemInfo = (PVRSRV_KERNEL_MEM_INFO *)psInitInfo->hKernelVDMStateUpdateBufferMemInfo;
@@ -314,7 +312,7 @@ failed_allockernelccb:
 
 static PVRSRV_ERROR SGXRunScript(PVRSRV_SGXDEV_INFO *psDevInfo, SGX_INIT_COMMAND *psScript, IMG_UINT32 ui32NumInitCommands)
 {
-	IMG_UINT32 ui32PC;
+	IMG_UINT32 ui32PC, ui32RegVal;
 	SGX_INIT_COMMAND *psComm;
 
 	for (ui32PC = 0, psComm = psScript;
@@ -339,6 +337,14 @@ static PVRSRV_ERROR SGXRunScript(PVRSRV_SGXDEV_INFO *psDevInfo, SGX_INIT_COMMAND
 #endif
 				break;
 			}
+			case SGX_INIT_OP_PRINT_HW_REG:
+			{
+				ui32RegVal = OSReadHWReg(psDevInfo->pvRegsBaseKM, psComm->sReadHWReg.ui32Offset);
+				PVR_LOG(("  (SGXREG) 0x%08X : 0x%08X", psComm->sReadHWReg.ui32Offset, ui32RegVal));
+
+				break;
+			}
+
 #if defined(PDUMP)
 			case SGX_INIT_OP_PDUMP_HW_REG:
 			{
@@ -1025,6 +1031,7 @@ static PVRSRV_ERROR DevDeInitSGX (IMG_VOID *pvDeviceNode)
 	PVRSRV_SGXDEV_INFO			*psDevInfo = (PVRSRV_SGXDEV_INFO*)psDeviceNode->pvDevice;
 	PVRSRV_ERROR				eError;
 	IMG_UINT32					ui32Heap;
+	IMG_UINT32					ui32Count;
 	DEVICE_MEMORY_HEAP_INFO		*psDeviceMemoryHeap;
 	SGX_DEVICE_MAP				*psSGXDeviceMap;
 
@@ -1133,8 +1140,19 @@ static PVRSRV_ERROR DevDeInitSGX (IMG_VOID *pvDeviceNode)
 		}
 	}
 #endif /* #ifdef SGX_FEATURE_HOST_PORT */
-
-
+	
+	/* Deallocate KM mem allocated for debug script commands */
+	for (ui32Count = 0; ui32Count < SGX_FEATURE_MP_CORE_COUNT_3D; ui32Count++) 
+	{
+		if(psDevInfo->sScripts.apsSGXREGDebugCommandsPart2[ui32Count])
+		{
+			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
+					SGX_MAX_PRINT_COMMANDS * sizeof(SGX_INIT_COMMAND),
+					psDevInfo->sScripts.apsSGXREGDebugCommandsPart2[ui32Count],
+					0);
+		}
+	}
+	
 	/* DeAllocate devinfo */
 	OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 				sizeof(PVRSRV_SGXDEV_INFO),
@@ -1492,6 +1510,7 @@ IMG_VOID HWRecoveryResetSGX (PVRSRV_DEVICE_NODE *psDeviceNode,
 							 IMG_UINT32			ui32CallerID)
 {
 	PVRSRV_ERROR		eError;
+	IMG_UINT32			ui32Count;
 	PVRSRV_SGXDEV_INFO	*psDevInfo = (PVRSRV_SGXDEV_INFO*)psDeviceNode->pvDevice;
 	SGXMKIF_HOST_CTL	*psSGXHostCtl = (SGXMKIF_HOST_CTL *)psDevInfo->psSGXHostCtl;
 	
@@ -1520,6 +1539,27 @@ IMG_VOID HWRecoveryResetSGX (PVRSRV_DEVICE_NODE *psDeviceNode,
 	psSGXHostCtl->ui32InterruptClearFlags |= PVRSRV_USSE_EDM_INTERRUPT_HWR;
 
 	PVR_LOG(("HWRecoveryResetSGX: SGX Hardware Recovery triggered"));
+
+	/* Run SGXREGDebug scripts */
+#if defined(SGX_FEATURE_MP)
+	PVR_LOG(("(HYD)"));
+	eError = SGXRunScript(psDevInfo, psDevInfo->sScripts.asSGXREGDebugCommandsPart1, SGX_MAX_PRINT_COMMANDS);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR,"HWRecoveryResetSGX: SGXREGDebugCommandsPart1 SGXRunScript failed (%d)", eError));
+	}
+#endif
+
+	for (ui32Count = 0; ui32Count < SGX_FEATURE_MP_CORE_COUNT_3D; ui32Count++) 
+	{
+		PVR_LOG(("(P%u)",ui32Count));
+		eError = SGXRunScript(psDevInfo, psDevInfo->sScripts.apsSGXREGDebugCommandsPart2[ui32Count], SGX_MAX_PRINT_COMMANDS);
+		if (eError != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR,"HWRecoveryResetSGX: SGXREGDebugCommandsPart2 SGXRunScript failed (%d)", eError));
+		}
+	}
+	/* Scripts end */
 	
 #if defined(SUPPORT_HWRECOVERY_TRACE_LIMIT)	
 /*
@@ -1785,6 +1825,12 @@ IMG_BOOL SGX_ISRHandler (IMG_VOID *pvData)
 			/* clear the events */
 			OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_EVENT_HOST_CLEAR, ui32EventClear);
 			OSWriteHWReg(psDevInfo->pvRegsBaseKM, EUR_CR_EVENT_HOST_CLEAR2, ui32EventClear2);
+
+			/*
+				Sample the current count from the uKernel _after_ we've cleared the
+				interrupt.
+			*/
+			g_ui32HostIRQCountSample = psDevInfo->psSGXHostCtl->ui32InterruptCount;
 		}
 	}
 
@@ -3238,6 +3284,14 @@ PVRSRV_ERROR SGXGetMiscInfoKM(PVRSRV_SGXDEV_INFO	*psDevInfo,
 
 		case SGX_MISC_INFO_DUMP_DEBUG_INFO_FORCE_REGS:
 		{
+			if(!OSProcHasPrivSrvInit())
+			{
+				PVR_DPF((PVR_DBG_ERROR, "Insufficient privileges to dump SGX "
+										"debug info with registers"));
+
+				return PVRSRV_ERROR_INVALID_MISCINFO;
+			}
+
 			PVR_LOG(("User requested SGX debug info"));
 
 			/* Dump SGX debug data to the kernel log. */

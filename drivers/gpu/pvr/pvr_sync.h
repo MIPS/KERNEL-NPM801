@@ -45,58 +45,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef _PVR_SYNC_H
 #define _PVR_SYNC_H
 
-#include <linux/types.h>
+#include <linux/seq_file.h>
 #include <linux/sync.h>
 
-#include "services_headers.h"
 #include "pvr_sync_user.h"
-#include "handle.h"
+#include "servicesint.h" // PVRSRV_DEVICE_SYNC_OBJECT
 
-typedef enum
-{
-	PVR_SYNC_TYPE_HW,
-	PVR_SYNC_TYPE_SW,
-} PVR_SYNC_TYPE;
+/* services4 internal interface */
 
-struct PVR_SYNC_TIMELINE
-{
-	struct	sync_timeline	obj;
-	struct list_head		sTimelineList; /* Used to keep a global list of all timelines for checking status */
-	PVRSRV_KERNEL_SYNC_INFO	*psSyncInfo;
-	IMG_UINT32				ui32SWFenceValue;
-	IMG_UINT32				ui32Pid;
-	PVRSRV_PER_PROCESS_DATA	*psPerProc;
-	IMG_HANDLE				hDevMemContext;
-	IMG_HANDLE				hDevCookie;
-	IMG_UINT32				ui32ActiveSWSyncs;
-	/* FIXME: can be replaced with atomic inc/dec? */
-	/* FIXME: Race between hw/sw sync creation? */
-	spinlock_t				sActiveSWSyncsLock;
-};
-
-struct PVR_SYNC
-{
-	struct sync_pt			pt;
-	IMG_UINT32				ui32WOPSnapshot;
-	IMG_UINT32				ui32RequiredSWFenceValue;
-	PVR_SYNC_TYPE			eType;
-	IMG_BOOL				bRequiresComplete;
-};
-
-/* Prototypes */
 int PVRSyncDeviceInit(void);
 void PVRSyncDeviceDeInit(void);
 void PVRSyncUpdateAllSyncs(void);
-struct PVR_SYNC_TIMELINE *PVRSyncCreateTimeline(const IMG_CHAR *name);
-void PVRSyncDestroyTimeline(struct PVR_SYNC_TIMELINE *psTimeline);
-struct PVR_SYNC *PVRSyncCreateSync(struct PVR_SYNC_TIMELINE *obj,
-                                  IMG_UINT32 ui32WOPSnapshot,
-								  IMG_UINT32 ui32RequiredSWFenceValue);
-
-/* sw_sync compatability */
-
-struct sync_timeline *sw_sync_create_timeline(const char *name);
-void sw_sync_timeline_inc(struct PVR_SYNC_TIMELINE *obj, u32 value);
-struct sync_pt *sw_sync_pt_create(struct PVR_SYNC_TIMELINE *obj, u32 value);
+PVRSRV_ERROR
+PVRSyncPatchCCBKickSyncInfos(IMG_HANDLE    ahSyncs[SGX_MAX_SRC_SYNCS_TA],
+		      PVRSRV_DEVICE_SYNC_OBJECT asDevSyncs[SGX_MAX_SRC_SYNCS_TA],
+							 IMG_UINT32 *pui32NumSrcSyncs);
+PVRSRV_ERROR
+PVRSyncPatchTransferSyncInfos(IMG_HANDLE    ahSyncs[SGX_MAX_SRC_SYNCS_TA],
+			  PVRSRV_DEVICE_SYNC_OBJECT asDevSyncs[SGX_MAX_SRC_SYNCS_TA],
+							 IMG_UINT32 *pui32NumSrcSyncs);
+PVRSRV_ERROR
+PVRSyncFencesToSyncInfos(PVRSRV_KERNEL_SYNC_INFO *apsSyncs[],
+						 IMG_UINT32 *pui32NumSyncs,
+						 struct sync_fence *apsFence[SGX_MAX_SRC_SYNCS_TA]);
 
 #endif /* _PVR_SYNC_H */
