@@ -673,7 +673,7 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
 		IMG_INT result;
 
 		PVR_ASSERT(LinuxMemAreaPhysIsContig(psLinuxMemArea));
-		PVR_ASSERT(LinuxMemAreaToCpuPFN(psLinuxMemArea, ui32ByteOffset) == ps_vma->vm_pgoff);
+		PVR_ASSERT(LinuxMemAreaToCpuPFN(psLinuxMemArea, uiByteOffset) == ps_vma->vm_pgoff);
         /*
 	 * Since the memory is contiguous, we can map the whole range in one
 	 * go .
@@ -707,10 +707,9 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
 	IMG_UINTPTR_T uiByteEnd = uiByteOffset + uiByteSize;
 	IMG_UINTPTR_T uiPA;
 	IMG_UINTPTR_T uiAdjustedPA = uiByteOffset;
-#if defined(PVR_MAKE_ALL_PFNS_SPECIAL)
-		IMG_BOOL bMixedMap = IMG_FALSE;
-#endif
-	/* First pass, validate the page frame numbers */
+        IMG_BOOL bMixedMap = IMG_FALSE;
+
+        /* First pass, validate the page frame numbers */
 	for(uiPA = uiByteOffset; uiPA < uiByteEnd; uiPA += PAGE_SIZE)
 	{
 		IMG_UINTPTR_T pfn;
