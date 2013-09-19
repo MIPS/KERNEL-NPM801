@@ -64,8 +64,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	#if defined(__arm__) || defined(__sh__)
 		#define	PGPROT_WC(pv)	pgprot_writecombine(pv)
 	#else
-		#if defined(__i386__) || defined(__x86_64) || defined(__mips__)
-			#define	PGPROT_WC(pv)	pgprot_noncached(pv)
+		#if defined(__i386__) || defined(__mips__)
+                        #define	PGPROT_WC(pv)	pgprot_noncached_wa(pv)
 		#else
 			#define PGPROT_WC(pv)	pgprot_noncached(pv)
 			#error  Unsupported architecture!
@@ -73,7 +73,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	#endif
 #endif
 
+#if defined(__mips__)
+#define	PGPROT_UC(pv)	pgprot_noncached_wa(pv)
+#else
 #define	PGPROT_UC(pv)	pgprot_noncached(pv)
+#endif
 
 #if defined(__i386__) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26))
 	#define	IOREMAP(pa, bytes)	ioremap_cache(pa, bytes)

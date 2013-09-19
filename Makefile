@@ -193,7 +193,7 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 export KBUILD_BUILDHOST := $(SUBARCH)
 ARCH		?= mips
-#CROSS_COMPILE	?= mips-linux-gnu-
+# CROSS_COMPILE	?= mips-linux-gnu-
 CROSS_COMPILE	?= mipsel-linux-android-
 
 # Architecture as present in compile.h
