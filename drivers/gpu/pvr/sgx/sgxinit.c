@@ -2430,17 +2430,21 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 	ui32BuildOptions = (SGX_BUILD_OPTIONS);
 	if (ui32BuildOptions != psDevInfo->ui32ClientBuildOptions)
 	{
+		PVR_LOG(("SGXInit: ui32BuildOptions:0X%x != psDevInfo->ui32ClientBuildOptions:0X%x",
+		                   ui32BuildOptions,        psDevInfo->ui32ClientBuildOptions));
+
 		ui32BuildOptionsMismatch = ui32BuildOptions ^ psDevInfo->ui32ClientBuildOptions;
 		if ( (psDevInfo->ui32ClientBuildOptions & ui32BuildOptionsMismatch) != 0)
 		{
-			PVR_LOG(("(FAIL) SGXInit: Mismatch in client-side and KM driver build options; "
+			PVR_LOG(("(FAIL) SGXInit: Mismatch in client-side and KM driver build options;\n"
 				"extra options present in client-side driver: (0x%x). Please check sgx_options.h",
 				psDevInfo->ui32ClientBuildOptions & ui32BuildOptionsMismatch ));
+
 		}
 
 		if ( (ui32BuildOptions & ui32BuildOptionsMismatch) != 0)
 		{
-			PVR_LOG(("(FAIL) SGXInit: Mismatch in client-side and KM driver build options; "
+			PVR_LOG(("(FAIL) SGXInit: Mismatch in client-side and KM driver build options;\n"
 				"extra options present in KM: (0x%x). Please check sgx_options.h",
 				ui32BuildOptions & ui32BuildOptionsMismatch ));
 		}
