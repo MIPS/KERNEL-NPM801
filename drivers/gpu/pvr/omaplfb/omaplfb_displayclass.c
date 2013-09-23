@@ -214,13 +214,16 @@ static IMG_VOID SetDCState(IMG_HANDLE hDevice, IMG_UINT32 ui32State)
 	switch (ui32State)
 	{
 		case DC_STATE_FLUSH_COMMANDS:
+			/* Flush out any 'real' operation waiting for another flip.
+			 * In flush state we won't pass any 'real' operations along
+			 * to dsscomp_gralloc_queue(); we'll just CmdComplete them
+			 * immediately.
+			 */
+			OMAPLFBFlip(psDevInfo, &psDevInfo->sSystemBuffer);
 			OMAPLFBAtomicBoolSet(&psDevInfo->sFlushCommands, OMAPLFB_TRUE);
 			break;
 		case DC_STATE_NO_FLUSH_COMMANDS:
 			OMAPLFBAtomicBoolSet(&psDevInfo->sFlushCommands, OMAPLFB_FALSE);
-			break;
-		case DC_STATE_FORCE_SWAP_TO_SYSTEM:
-			OMAPLFBFlip(psDevInfo, &psDevInfo->sSystemBuffer);
 			break;
 		default:
 			break;
@@ -237,8 +240,15 @@ static PVRSRV_ERROR OpenDCDevice(IMG_UINT32 uiPVRDevID,
 {
 	OMAPLFB_DEVINFO *psDevInfo;
 	OMAPLFB_ERROR eError;
-	unsigned uiMaxFBDevIDPlusOne = OMAPLFBMaxFBDevIDPlusOne();
+	unsigned uiMaxFBDevIDPlusOne;
 	unsigned i;
+
+	if (!try_module_get(THIS_MODULE))
+	{
+		return PVRSRV_ERROR_UNABLE_TO_OPEN_DC_DEVICE;
+	}
+
+	uiMaxFBDevIDPlusOne = OMAPLFBMaxFBDevIDPlusOne();
 
 	for (i = 0; i < uiMaxFBDevIDPlusOne; i++)
 	{
@@ -252,7 +262,8 @@ static PVRSRV_ERROR OpenDCDevice(IMG_UINT32 uiPVRDevID,
 	{
 		DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX
 			": %s: PVR Device %u not found\n", __FUNCTION__, uiPVRDevID));
-		return PVRSRV_ERROR_INVALID_DEVICE;
+		eError = PVRSRV_ERROR_INVALID_DEVICE;
+		goto ErrorModulePut;
 	}
 
 	/* store the system surface sync data */
@@ -263,13 +274,19 @@ static PVRSRV_ERROR OpenDCDevice(IMG_UINT32 uiPVRDevID,
 	{
 		DEBUG_PRINTK((KERN_WARNING DRIVER_PREFIX
 			": %s: Device %u: OMAPLFBUnblankDisplay failed (%d)\n", __FUNCTION__, psDevInfo->uiFBDevID, eError));
-		return PVRSRV_ERROR_UNBLANK_DISPLAY_FAILED;
+		eError = PVRSRV_ERROR_UNBLANK_DISPLAY_FAILED;
+		goto ErrorModulePut;
 	}
 
 	/* return handle to the devinfo */
 	*phDevice = (IMG_HANDLE)psDevInfo;
 	
 	return PVRSRV_OK;
+
+ErrorModulePut:
+	module_put(THIS_MODULE);
+
+	return eError;
 }
 
 /*
@@ -286,6 +303,8 @@ static PVRSRV_ERROR CloseDCDevice(IMG_HANDLE hDevice)
 #else
 	UNREFERENCED_PARAMETER(hDevice);
 #endif
+	module_put(THIS_MODULE);
+
 	return PVRSRV_OK;
 }
 
@@ -943,12 +962,16 @@ void OMAPLFBSwapHandler(OMAPLFB_BUFFER *psBuffer)
 		switch(eMode)
 		{
 			case OMAPLFB_UPDATE_MODE_AUTO:
+			case OMAPLFB_UPDATE_MODE_VSYNC:
 				psSwapChain->bNotVSynced = OMAPLFB_FALSE;
 
 				if (bPreviouslyNotVSynced || psSwapChain->iBlankEvents != iBlankEvents)
 				{
 					psSwapChain->iBlankEvents = iBlankEvents;
-					psSwapChain->bNotVSynced = !WaitForVSyncSettle(psDevInfo);
+					if (eMode == OMAPLFB_UPDATE_MODE_AUTO)
+					{
+						psSwapChain->bNotVSynced = !WaitForVSyncSettle(psDevInfo);
+					}
 				} else if (psBuffer->ulSwapInterval != 0)
 				{
 					psSwapChain->bNotVSynced = !OMAPLFBWaitForVSync(psDevInfo);
@@ -1058,6 +1081,47 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 	asMemInfo[5] = {};
 	int res;
 
+	if(!psDssData)
+	{
+		if(ui32NumMemInfos == 1)
+		{
+			OMAPLFB_BUFFER sBuffer;
+			IMG_CPU_PHYADDR phyAddr;
+
+			psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[0], 0, &phyAddr);
+
+			/* Fake up an OMAPLFB_BUFFER */
+			sBuffer.psNext				= NULL;
+			sBuffer.psDevInfo			= psDevInfo;
+			sBuffer.ulYOffset			= 0;
+			sBuffer.sSysAddr.uiAddr		= phyAddr.uiAddr;
+			sBuffer.sCPUVAddr			= 0;
+			sBuffer.psSyncData			= NULL;
+			sBuffer.hCmdComplete		= (OMAPLFB_HANDLE)hCmdCookie;
+			sBuffer.ulSwapInterval		= 0;
+
+			/* If we got a meminfo but no private data, assume the 'null' HWC
+			 * backend is in use, and emulate a swapchain-less ProcessFlipV1.
+			 */
+			OMAPLFBFlip(psDevInfo, &sBuffer);
+
+			/* FIXME: Why do this? Shouldn't we use the hCmdCookie correctly,
+			 * like ProcessFlipV1 does?
+			 */
+			psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete(hCmdCookie, IMG_TRUE);
+		}
+		else
+		{
+			printk(KERN_WARNING DRIVER_PREFIX
+				   ": %s: Device %u: WARNING: psDispcData was NULL. "
+				   "The HWC probably has a bug. Silently ignoring.",
+				   __FUNCTION__, psDevInfo->uiFBDevID);
+		}
+
+		psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete(hCmdCookie, IMG_TRUE);
+		return IMG_TRUE;
+	}
+
 	if(ui32DssDataLength != sizeof(*psDssData))
 	{
 		WARN(1, "invalid size of private data (%d vs %d)",
@@ -1069,6 +1133,12 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 	{
 		WARN(1, "must have at least one layer");
 		return IMG_FALSE;
+	}
+
+	if(DontWaitForVSync(psDevInfo))
+	{
+		psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete(hCmdCookie, IMG_TRUE);
+		return IMG_TRUE;
 	}
 
 	for(i = k = 0; i < ui32NumMemInfos && k < ARRAY_SIZE(asMemInfo); i++, k++)
@@ -1587,8 +1657,10 @@ static OMAPLFB_DEVINFO *OMAPLFBInitDev(unsigned uiFBDevID)
 #if defined(CONFIG_ION_OMAP)
 	psDevInfo->psIONClient =
 		ion_client_create(omap_ion_device,
+#if defined(SUPPORT_OLD_ION_API)
 						  1 << ION_HEAP_TYPE_CARVEOUT |
 						  1 << OMAP_ION_HEAP_TYPE_TILER,
+#endif
 						  "dc_omapfb3_linux");
 	if (IS_ERR_OR_NULL(psDevInfo->psIONClient))
 	{

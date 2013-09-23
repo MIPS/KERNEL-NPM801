@@ -248,7 +248,7 @@ IMG_UINT32 PVRSRVGetWriteOpsPending(PVRSRV_KERNEL_SYNC_INFO *psSyncInfo, IMG_BOO
 			Note: This needs to be atomic and is provided the
 			kernel driver is single threaded (non-rentrant)
 		*/
-		ui32WriteOpsPending = psSyncInfo->psSyncData->ui32WriteOpsPending++;
+		ui32WriteOpsPending = SyncTakeWriteOp(psSyncInfo, SYNC_OP_CLASS_QUEUE);
 	}
 
 	return ui32WriteOpsPending;
@@ -275,7 +275,7 @@ IMG_UINT32 PVRSRVGetReadOpsPending(PVRSRV_KERNEL_SYNC_INFO *psSyncInfo, IMG_BOOL
 
 	if(bIsReadOp)
 	{
-		ui32ReadOpsPending = psSyncInfo->psSyncData->ui32ReadOps2Pending++;
+		ui32ReadOpsPending = SyncTakeReadOp2(psSyncInfo, SYNC_OP_CLASS_QUEUE);
 	}
 	else
 	{
@@ -663,8 +663,6 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetQueueSpaceKM(PVRSRV_QUEUE_INFO *psQueue,
 												IMG_SIZE_T uParamSize,
 												IMG_VOID **ppvSpace)
 {
-	IMG_BOOL bTimeout = IMG_TRUE;
-
 	/*	round to 4byte units */
 	uParamSize =  (uParamSize + 3) & 0xFFFFFFFC;
 
@@ -674,26 +672,14 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetQueueSpaceKM(PVRSRV_QUEUE_INFO *psQueue,
 		return PVRSRV_ERROR_CMD_TOO_BIG;
 	}
 
-	/* PRQA S 3415,4109 1 */ /* macro format critical - leave alone */
-	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
+	if (GET_SPACE_IN_CMDQ(psQueue) > uParamSize)
 	{
-		if (GET_SPACE_IN_CMDQ(psQueue) > uParamSize)
-		{
-			bTimeout = IMG_FALSE;
-			break;
-		}
-		OSSleepms(1);
-	} END_LOOP_UNTIL_TIMEOUT();
-
-	if (bTimeout == IMG_TRUE)
-	{
-		*ppvSpace = IMG_NULL;
-
-		return PVRSRV_ERROR_CANNOT_GET_QUEUE_SPACE;
+		*ppvSpace = (IMG_VOID *)((IMG_UINTPTR_T)psQueue->pvLinQueueUM + psQueue->uWriteOffset);
 	}
 	else
 	{
-		*ppvSpace = (IMG_VOID *)((IMG_UINTPTR_T)psQueue->pvLinQueueUM + psQueue->uWriteOffset);
+		*ppvSpace = IMG_NULL;
+		return PVRSRV_ERROR_CANNOT_GET_QUEUE_SPACE;
 	}
 
 	return PVRSRV_OK;
@@ -1262,43 +1248,6 @@ PVRSRV_ERROR PVRSRVProcessQueues(IMG_BOOL	bFlush)
 
 	return PVRSRV_OK;
 }
-
-#if defined(SUPPORT_CUSTOM_SWAP_OPERATIONS)
-/*!
-******************************************************************************
-
- @Function	PVRSRVFreeCommandCompletePacketKM
-
- @Description	Updates non-private command complete sync objects
-
- @Input		hCmdCookie : command cookie
- @Input		bScheduleMISR : obsolete parameter
-
- @Return	PVRSRV_ERROR
-
-******************************************************************************/
-IMG_INTERNAL
-IMG_VOID PVRSRVFreeCommandCompletePacketKM(IMG_HANDLE	hCmdCookie,
-										   IMG_BOOL		bScheduleMISR)
-{
-	COMMAND_COMPLETE_DATA	*psCmdCompleteData = (COMMAND_COMPLETE_DATA *)hCmdCookie;
-	SYS_DATA				*psSysData;
-
-	PVR_UNREFERENCED_PARAMETER(bScheduleMISR);
-
-	SysAcquireData(&psSysData);
-
-	/* free command complete storage */
-	psCmdCompleteData->bInUse = IMG_FALSE;
-
-	/* FIXME: This may cause unrelated devices to be woken up. */
-	PVRSRVScheduleDeviceCallbacks();
-
-	/* the MISR is always scheduled, regardless of bScheduleMISR */
-	OSScheduleMISR(psSysData);
-}
-
-#endif /* (SUPPORT_CUSTOM_SWAP_OPERATIONS) */
 
 
 /*!
