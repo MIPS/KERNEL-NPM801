@@ -2606,6 +2606,9 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 	ui32BuildOptions = (SGX_BUILD_OPTIONS);
 	if (ui32BuildOptions != psDevInfo->ui32ClientBuildOptions)
 	{
+		printk(KERN_ERR "SGXInit: ui32BuildOptions:0X%x != psDevInfo->ui32ClientBuildOptions:0X%x",
+                                          ui32BuildOptions,        psDevInfo->ui32ClientBuildOptions);
+
 		PVR_LOG(("SGXInit: ui32BuildOptions:0X%x != psDevInfo->ui32ClientBuildOptions:0X%x",
 		                   ui32BuildOptions,        psDevInfo->ui32ClientBuildOptions));
 

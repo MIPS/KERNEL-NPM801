@@ -148,9 +148,21 @@ static IMG_VOID SetDCState(IMG_HANDLE hDevice, IMG_UINT32 ui32State)
 		case DC_STATE_NO_FLUSH_COMMANDS:
 			XBLFBAtomicBoolSet(&psDevInfo->sFlushCommands, XBLFB_FALSE);
 			break;
+#if 0
+		/*
+		 * This feature has been dropped in IMG DDK 1.11.
+		 *
+		 * This code was likely copied from OMAP implementation and isn't needed.
+		 * I believe the OMAP used the GPU Hardware Composer and this facility
+		 * slipped in a dummy frame if the GPU hardware got stuck.
+		 *
+		 * Ingenic uses it's own Hardware Composer and thus never needed
+		 * this old GPU workaround.
+		 */
 		case DC_STATE_FORCE_SWAP_TO_SYSTEM:
 			XBLFBFlip(psDevInfo, &psDevInfo->sSystemBuffer);
 			break;
+#endif
 		default:
 			break;
 	}
