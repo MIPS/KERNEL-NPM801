@@ -46,7 +46,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define _PVR_SYNC_H
 
 #include <linux/seq_file.h>
+#include <linux/version.h>
+
+#if !defined(__KERNEL__) || (LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0))
 #include <linux/sync.h>
+#else
+#include <../drivers/staging/android/sync.h>
+#endif
 
 #include "pvr_sync_user.h"
 #include "servicesint.h" // PVRSRV_DEVICE_SYNC_OBJECT
