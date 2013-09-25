@@ -83,7 +83,17 @@ struct pvr_proc_dir_entry {
 	IMG_VOID *data;
 };
 
-// The proc entry for our /proc/pvr directory
+// The proc entry for our /proc/pvr directory.
+//
+// NOTE:
+//     Original 'static' in Imagination PVR code
+//     was removed to allow this /proc entry:
+//          /proc/pvr/turbo
+//
+//     This allows access to 'dir' in:
+//	    $linux/drivers/gpu/pvr/xb47/sysutils_linux.c
+//
+/* static */
 struct proc_dir_entry * dir;
 
 static const IMG_CHAR PVRProcDirRoot[] = "pvr";

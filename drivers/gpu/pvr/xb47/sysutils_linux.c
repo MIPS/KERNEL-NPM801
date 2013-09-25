@@ -62,7 +62,15 @@
 
 #define SGX_PARENT_CLOCK "core_ck"
 
-// The proc entry for our /proc/pvr directory
+// The proc entry for our /proc/pvr directory.
+//
+// REMIND: Perhaps this should be cleaned up.
+//         It's requiring 'dir' to be made global
+//         in drivers/gpu/pvr/proc.c
+//
+//         Make's it possibe to provide easy to access via:
+//             /proc/pvr/turbo
+//
 extern struct proc_dir_entry * dir;
 
 #if defined(LDM_PLATFORM) && !defined(PVR_DRI_DRM_NOT_PCI)
