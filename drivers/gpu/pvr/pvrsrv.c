@@ -426,16 +426,16 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInit(PSYS_DATA psSysData)
 	psSysData->eFailedPowerState = PVRSRV_SYS_POWER_STATE_Unspecified;
 
 	/* Create an event object */
-	if(OSAllocMem( PVRSRV_PAGEABLE_SELECT,
+	if((eError = OSAllocMem( PVRSRV_PAGEABLE_SELECT,
 					 sizeof(PVRSRV_EVENTOBJECT) ,
 					 (IMG_VOID **)&psSysData->psGlobalEventObject, 0,
-					 "Event Object") != PVRSRV_OK)
+					 "Event Object")) != PVRSRV_OK)
 	{
 
 		goto Error;
 	}
 
-	if(OSEventObjectCreateKM("PVRSRV_GLOBAL_EVENTOBJECT", psSysData->psGlobalEventObject) != PVRSRV_OK)
+	if((eError = OSEventObjectCreateKM("PVRSRV_GLOBAL_EVENTOBJECT", psSysData->psGlobalEventObject)) != PVRSRV_OK)
 	{
 		goto Error;
 	}

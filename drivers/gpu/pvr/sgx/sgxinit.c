@@ -381,6 +381,10 @@ static PVRSRV_ERROR SGXRunScriptOnCore(PVRSRV_SGXDEV_INFO *psDevInfo, SGX_INIT_C
 	IMG_UINT32 ui32PC;
 	SGX_INIT_COMMAND *psComm;
 
+#if !defined(SGX_FEATURE_MP)
+	PVR_UNREFERENCED_PARAMETER(ui32CoreNum);
+#endif
+
 	for (ui32PC = 0, psComm = psScript;
 		ui32PC < ui32NumInitCommands;
 		ui32PC++, psComm++)

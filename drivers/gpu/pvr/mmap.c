@@ -707,9 +707,10 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
 	IMG_UINTPTR_T uiByteEnd = uiByteOffset + uiByteSize;
 	IMG_UINTPTR_T uiPA;
 	IMG_UINTPTR_T uiAdjustedPA = uiByteOffset;
-        IMG_BOOL bMixedMap = IMG_FALSE;
-
-        /* First pass, validate the page frame numbers */
+#if defined(PVR_MAKE_ALL_PFNS_SPECIAL)
+		IMG_BOOL bMixedMap = IMG_FALSE;
+#endif
+	/* First pass, validate the page frame numbers */
 	for(uiPA = uiByteOffset; uiPA < uiByteEnd; uiPA += PAGE_SIZE)
 	{
 		IMG_UINTPTR_T pfn;
@@ -737,7 +738,9 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
 			}
 		    else if (0 == page_count(pfn_to_page(pfn)))
 		    {
+#if defined(PVR_MAKE_ALL_PFNS_SPECIAL)
 		        bMixedMap = IMG_TRUE;
+#endif
 		    }
 			uiAdjustedPA += PAGE_SIZE;
 		}

@@ -352,7 +352,7 @@ static INLINE IMG_VOID CheckPT(MMU_PT_INFO *psPTInfoList)
 	it read/write when we alter it. This allows us
 	to check that our memory isn't being overwritten
 */
-#if defined(PVRSRV_MMU_MAKE_READWRITE_ON_DEMAND)
+#if defined(__linux__) && defined(PVRSRV_MMU_MAKE_READWRITE_ON_DEMAND)
 
 #include <linux/version.h>
 
@@ -3612,6 +3612,10 @@ MMU_MapScatter (MMU_HEAP *pMMUHeap,
 				  DevVAddr.uiAddr, sSysAddr.uiAddr, uCount, uSize));
 	}
 
+#if (SGX_FEATURE_PT_CACHE_ENTRIES_PER_LINE > 1)
+	MMU_InvalidatePageTableCache(pMMUHeap->psMMUContext->psDevInfo);
+#endif
+
 #if defined(PDUMP)
 	MMU_PDumpPageTables (pMMUHeap, MapBaseDevVAddr, uSize, IMG_FALSE, hUniqueTag);
 #endif /* #if defined(PDUMP) */
@@ -3688,6 +3692,10 @@ MMU_MapPages (MMU_HEAP *pMMUHeap,
 		DevVAddr.uiAddr += ui32VAdvance;
 		DevPAddr.uiAddr += ui32PAdvance;
 	}
+
+#if (SGX_FEATURE_PT_CACHE_ENTRIES_PER_LINE > 1)
+	MMU_InvalidatePageTableCache(pMMUHeap->psMMUContext->psDevInfo);
+#endif
 
 #if defined(PDUMP)
 	MMU_PDumpPageTables (pMMUHeap, MapBaseDevVAddr, uSize, IMG_FALSE, hUniqueTag);
@@ -3781,6 +3789,10 @@ MMU_MapPagesSparse (MMU_HEAP *pMMUHeap,
 		DevVAddr.uiAddr += ui32VAdvance;
 	}
 	pMMUHeap->bHasSparseMappings = IMG_TRUE;
+
+#if (SGX_FEATURE_PT_CACHE_ENTRIES_PER_LINE > 1)
+	MMU_InvalidatePageTableCache(pMMUHeap->psMMUContext->psDevInfo);
+#endif
 
 #if defined(PDUMP)
 	MMU_PDumpPageTables (pMMUHeap, MapBaseDevVAddr, uSizeVM, IMG_FALSE, hUniqueTag);
@@ -3892,6 +3904,10 @@ MMU_MapShadow (MMU_HEAP          *pMMUHeap,
 		MapDevVAddr.uiAddr += ui32VAdvance;
 		uOffset += ui32PAdvance;
 	}
+
+#if (SGX_FEATURE_PT_CACHE_ENTRIES_PER_LINE > 1)
+	MMU_InvalidatePageTableCache(pMMUHeap->psMMUContext->psDevInfo);
+#endif
 
 #if defined(PDUMP)
 	MMU_PDumpPageTables (pMMUHeap, MapBaseDevVAddr, uByteSize, IMG_FALSE, hUniqueTag);
@@ -4021,6 +4037,11 @@ MMU_MapShadowSparse (MMU_HEAP          *pMMUHeap,
 	}
 
 	pMMUHeap->bHasSparseMappings = IMG_TRUE;
+
+#if (SGX_FEATURE_PT_CACHE_ENTRIES_PER_LINE > 1)
+	MMU_InvalidatePageTableCache(pMMUHeap->psMMUContext->psDevInfo);
+#endif
+
 #if defined(PDUMP)
 	MMU_PDumpPageTables (pMMUHeap, MapBaseDevVAddr, uiSizeVM, IMG_FALSE, hUniqueTag);
 #endif /* #if defined(PDUMP) */

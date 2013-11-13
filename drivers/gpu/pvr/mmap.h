@@ -52,7 +52,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * freedom in choosing the mmap offset for mappings.  Mixed maps also
  * allow both the mmap and the wrap code to be simplified somewhat.
  */
-//#define	PVR_MAKE_ALL_PFNS_SPECIAL
+#define	PVR_MAKE_ALL_PFNS_SPECIAL
 #endif
 
 #include "perproc.h"
