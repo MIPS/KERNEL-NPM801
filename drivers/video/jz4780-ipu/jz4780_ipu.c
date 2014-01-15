@@ -771,8 +771,9 @@ static unsigned int get_out_fmt_rgb_order(int hal_out_fmt)
 	switch (hal_out_fmt) {
 		case HAL_PIXEL_FORMAT_RGBA_8888:
 		case HAL_PIXEL_FORMAT_RGBX_8888:
-			order = RGB_OUT_OFT_BGR;
+			order = RGB_OUT_OFT_RGB;	/* WAS BGR */
 			break;
+
 		case HAL_PIXEL_FORMAT_RGB_888:
 		case HAL_PIXEL_FORMAT_RGB_565:
 		case HAL_PIXEL_FORMAT_BGRA_8888:
@@ -786,8 +787,7 @@ static unsigned int get_out_fmt_rgb_order(int hal_out_fmt)
 	return order;
 }
 
-static int jz47_set_ipu_csc_cfg(struct jz_ipu *ipu, int outW, 
-								int outH, int Wdiff, int Hdiff)
+static int jz47_set_ipu_csc_cfg(struct jz_ipu *ipu, int outW, int outH, int Wdiff, int Hdiff)
 {
 	unsigned int out_rgb_order;
 	unsigned int in_fmt, out_fmt, tmp;
@@ -810,9 +810,17 @@ static int jz47_set_ipu_csc_cfg(struct jz_ipu *ipu, int outW,
 	img = &ipu_proc->img;
 
 	in_fmt = hal_to_ipu_infmt(img->in_fmt);
+
 	out_fmt = hal_to_ipu_outfmt(img->out_fmt);
+
+	pr_debug("%s: out_fmt = 0x%x = hal_to_ipu_outfmt(img->out_fmt:0x%x);\n", __func__,
+                      out_fmt,                           img->out_fmt);
+
 	/* set RGB order */
 	out_rgb_order = get_out_fmt_rgb_order(img->out_fmt);
+
+	pr_debug("%s: out_rgb_order = 0x%x = get_out_fmt_rgb_order(img->out_fmt:0x%x);\n", __func__,
+		      out_rgb_order,                               img->out_fmt);
 
 	switch (in_fmt) {
 		case IN_FMT_YUV420:
@@ -833,12 +841,15 @@ static int jz47_set_ipu_csc_cfg(struct jz_ipu *ipu, int outW,
 
 	switch (out_fmt) {
 		case OUT_FMT_RGB888:
+			pr_debug("%s: case OUT_FMT_RGB888:\n", __func__);
 			outW = outW << 2;
 			break;
 		case OUT_FMT_RGB555:
+			pr_debug("%s: case OUT_FMT_RGB555:\n", __func__);
 			outW = outW << 1;
 			break;
 		case OUT_FMT_RGB565:
+			pr_debug("%s: case OUT_FMT_RGB565:\n", __func__);
 			outW = outW << 1;
 			break;
 	}
@@ -888,7 +899,13 @@ static int jz47_set_ipu_csc_cfg(struct jz_ipu *ipu, int outW,
 	}
 
 	// set Format
+
+	pr_debug("%s: tmp = in_fmt_tmp:%x | out_fmt_tmp:%x | out_rgb_order:%x;\n", __func__,
+                            in_fmt_tmp,     out_fmt_tmp,     out_rgb_order);
+
 	tmp = in_fmt_tmp | out_fmt_tmp | out_rgb_order;
+
+	pr_debug("%s: reguister IPU_D_FMT = tmp:0x%x\n", __func__, tmp);
 	reg_write(ipu, IPU_D_FMT, tmp);
 
 	// set CSC parameter
