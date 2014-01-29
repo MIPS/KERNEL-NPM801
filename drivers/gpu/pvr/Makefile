@@ -108,7 +108,8 @@ pvrsrvkm-y := \
 	sgx/mmu.o \
 	sgx/pb.o
 
-pvrsrvkm-$(CONFIG_ION_XB) += ion.o
+pvrsrvkm-$(CONFIG_ION_XBURST) += ion.o
+ccflags-$(CONFIG_ION_XBURST) += -DSUPPORT_ION
 
 xblfb-y := \
 	xblfb/xblfb_displayclass.o \

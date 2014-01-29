@@ -119,6 +119,26 @@ IMG_VOID IonDeinit(IMG_VOID)
 
 #else /* defined(CONFIG_ION_SUNXI) */
 
+#if defined(CONFIG_ION_XBURST)
+
+/* Real ion with sharing (xburst) */
+
+extern struct ion_device *xburst_ion_device;
+struct ion_device *gpsIonDev;
+
+PVRSRV_ERROR IonInit(IMG_VOID)
+{
+	gpsIonDev = xburst_ion_device;
+	return PVRSRV_OK;
+}
+
+IMG_VOID IonDeinit(IMG_VOID)
+{
+	gpsIonDev = IMG_NULL;
+}
+
+#else /* defined(CONFIG_ION_XBURST) */
+
 /* "Reference" ion implementation */
 
 #include "../drivers/gpu/ion/ion_priv.h"
@@ -215,6 +235,8 @@ IMG_VOID IonDeinit(IMG_VOID)
 	kfree(gapsIonHeaps);
 	ion_device_destroy(gpsIonDev);
 }
+
+#endif /* defined(CONFIG_ION_XBURST) */
 
 #endif /* defined(CONFIG_ION_SUNXI) */
 
