@@ -15,6 +15,12 @@
 
 #define ECCBIT 24
 #ifdef CONFIG_MUL_PARTS
+
+#ifdef  CONFIG_PARTITIONS_FOR_2GB_NAND
+#error "CONFIG_PARTITIONS_FOR_2GB_NAND not useful for NPM801"
+#else
+
+#ifdef CONFIG_PARTITIONS_FOR_4GB_NAND
 static struct platform_nand_partition partition_info[] = {
 	{
 	name:"ndxboot",
@@ -97,6 +103,113 @@ static struct platform_nand_partition partition_info[] = {
 	ex_partition:{{0},{0},{0},{0}}
 	}
 };
+#else
+
+#ifdef CONFIG_PARTITIONS_FOR_8GB_NAND
+#define SF 4
+#define PTN_BOOT_SIZE               (16   * MB)
+#define PTN_RECOVERY_SIZE           (16   * MB)
+#define PTN_APANIC_SIZE             (4    * MB)
+#define PTN_BATTERY_SIZE            (1    * MB)
+#define PTN_DEVICES_ID_SIZE         (2    * MB)
+#define PTN_SYSTEM_SIZE            ((500  * SF) * MB)
+#define PTN_USERDATA_SIZE          ((800  * SF) * MB)
+#define PTN_CACHE_SIZE             ((500  * SF) * MB)
+
+#define PTN_BOOT_OFFSET            (8    * MB)
+#define PTN_RECOVERY_OFFSET        (PTN_BOOT_OFFSET + PTN_BOOT_SIZE)
+#define PTN_APANIC_OFFSET          (PTN_RECOVERY_OFFSET + PTN_RECOVERY_SIZE)
+#define PTN_BATTERY_OFFSET         (PTN_MISC_OFFSET + PTN_APANIC_SIZE)
+#define PTN_DEVICES_ID_OFFSET      (PTN_BATTERY_OFFSET + PTN_BATTERY_SIZE + (14 * MB))
+#define PTN_SYSTEM_OFFSET          (PTN_DEVICES_ID_OFFSET + PTN_DEVICES_ID_SIZE + (3 * MB))
+#define PTN_USERDATA_OFFSET        (PTN_SYSTEM_OFFSET + PTN_SYSTEM_SIZE)
+#define PTN_CACHE_OFFSET           (PTN_USERDATA_OFFSET + PTN_USERDATA_SIZE)
+#define PTN_STORAGE_OFFSET         (PTN_CACHE_OFFSET + PTN_CACHE_SIZE)
+
+static struct platform_nand_partition partition_info[] = {
+	{
+	name:"ndxboot",
+	offset:0 * 0x100000LL,
+	size:8 * 0x100000LL,
+	mode:SPL_MANAGER,
+	eccbit:ECCBIT,
+	use_planes:ONE_PLANE,
+	part_attrib:PART_XBOOT,
+	ex_partition:{{0},{0},{0},{0}}			/* These are the 4 MUL_PARTS */
+	},
+
+	{
+	name:"ndboot",
+	offset: PTN_BOOT_OFFSET,
+	size: PTN_BOOT_SIZE,
+	mode: DIRECT_MANAGER,
+	eccbit: ECCBIT,
+	use_planes: ONE_PLANE,
+	part_attrib: PART_KERNEL,
+	ex_partition:{{0},{0},{0},{0}}
+	},
+
+	{
+	name: "ndrecovery",
+	offset: PTN_RECOVERY_OFFSET,
+	size: PTN_RECOVERY_SIZE,
+	mode: DIRECT_MANAGER,
+	eccbit: ECCBIT,
+	use_planes: ONE_PLANE,
+	part_attrib: PART_RECOVERY,
+	ex_partition: {{0},{0},{0},{0}}
+	},
+
+	{
+	name:"ndapanic",
+	offset: PTN_APANIC_OFFSET,
+	size: PTN_PANIC_SIZE,
+	mode: DIRECT_MANAGER,
+	eccbit: ECCBIT,
+	use_planes: ONE_PLANE,
+	part_attrib: PART_MISC,
+	ex_partition: {{0},{0},{0},{0}}
+	},
+
+	{
+	name: "ndsystem",
+	offset: PTN_SYSTEM_OFFSET,
+	size: PTN_SYSTEM_SIZE,
+	mode: ZONE_MANAGER,
+	eccbit: ECCBIT,
+	use_planes: ONE_PLANE,
+	part_attrib: PART_SYSTEM,
+	ex_partition: {{0},{0},{0},{0}}
+	},
+
+	{
+	name:"nddata",
+	offset: PTN_USERDATA_OFFSET,
+	size: PTN_USERDATA_SIZE,
+	mode: ZONE_MANAGER,
+	eccbit: ECCBIT,
+	use_planes: ONE_PLANE,
+	part_attrib: PART_DATA,
+	ex_partition: {{0},{0},{0},{0}}
+	},
+
+	{
+	name:"ndcache",
+	offset: PTN_CACHE_OFFSET,
+	size: PTN_CACHE_SIZE,
+	mode: ZONE_MANAGER,
+	eccbit: ECCBIT,
+	use_planes: ONE_PLANE,
+	part_attrib: PART_CACHE,
+	ex_partition: {{0},{0},{0},{0}}
+	},
+};
+
+#else
+#error   "CONFIG_PARTITIONS_FOR_*GB_NAND Missing"
+#endif /* CONFIG_PARTITIONS_FOR_8GB_NAND */
+#endif /* CONFIG_PARTITIONS_FOR_4GB_NAND */
+#endif /* CONFIG_PARTITIONS_FOR_2GB_NAND */
 
 /* Define max reserved bad blocks for each partition.
  * This is used by the mtdblock-jz.c NAND FTL driver only.
@@ -119,7 +232,7 @@ static int partition_reserved_badblocks[] = {
         10,
 };
 
-#else
+#else /* !CONFIG_MUL_PARTS */
 
 static struct platform_nand_partition partition_info[] = {
 	{
@@ -215,7 +328,8 @@ static int partition_reserved_badblocks[] = {
 	128,		/* reserved blocks of ndmisc */
 	1,			/* reserved blocks of nderror */
 };
-#endif
+#endif /* CONFIG_MUL_PARTS */
+
 struct platform_nand_data jz_nand_chip_data = {
 	.nr_partitions = ARRAY_SIZE(partition_info),
 	.partitions = partition_info,

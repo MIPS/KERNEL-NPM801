@@ -37,12 +37,13 @@
 #define PART_NANDSPL   3
 #define PART_DEVICE_ID 4
 #define MUL_PARTS 4
-enum part_attribute{
+enum part_attribute {
 	PART_XBOOT,
 	PART_KERNEL,
 	PART_RECOVERY,
 	PART_SYSTEM,
 	PART_DATA,
+	PART_CACHE,
 	PART_MISC
 };
 enum operation_mode{

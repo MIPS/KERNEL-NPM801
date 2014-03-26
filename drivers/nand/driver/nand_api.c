@@ -524,8 +524,12 @@ static int init_nand_driver(void)
 		}
 		/*  blockid is physcial block id  */
 		blockid = (g_partition+ret)->startblockID + (g_partition+ret)->PageCount / pageperblock;
-		if(blockid > (totalblocks) || lastblockid > (g_partition +ret)->startblockID){
-			eprintf("ERROR:%s[%d] nand capacity insufficient\n",__func__,__LINE__);
+		if(blockid > (totalblocks) || lastblockid > (g_partition+ret)->startblockID) {
+			eprintf("%s(): ERROR at blockid:%d > (totalblocks:%d) || lastblockid:%d > (g_partition+ret):%p->startblockID:%d)\n", __func__,
+					        blockid,      totalblocks,       lastblockid,     (g_partition+ret), (g_partition+ret)->startblockID);
+
+			eprintf("%s(): ERROR at Line:%d; nand capacity insufficient\n",__func__,__LINE__);
+
 			goto init_nand_driver_error2;
 		}
 		lastblockid = blockid;

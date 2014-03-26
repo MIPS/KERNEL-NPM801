@@ -11,11 +11,13 @@
 typedef struct _LPartition LPartition;
 #define MUL_PARTS 4
 typedef struct _lmul_parts lmul_parts;
+
 struct _lmul_parts{
     int startSector;
     int sectorCount;
     char *name;
 };
+
 struct _LPartition {
 	struct singlelist head;
     int startSector;

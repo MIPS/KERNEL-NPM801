@@ -105,3 +105,29 @@ config BOARD_NAME
 	default "VGA_Dongle" if BOARD_VGA_DONGLE
 	default "EBOOK" if BOARD_EBOOK
 
+choice
+	prompt "Use a partition table that fits within a 2|4|8 Gbyte Nand Chip"
+        depends on SOC_4780
+        default PARTITIONS_FOR_4GB_NAND if BOARD_NPM801
+        default PARTITIONS_FOR_8GB_NAND if BOARD_URBOARD
+
+config PARTITIONS_FOR_2GB_NAND
+	bool "2GB"
+	depends on !BOARD_NPM801
+	help
+	   The original UR-BOARDS partitions used a bit less that 2 Gbytes.
+	   It used a 4GB MT29F32G08CBACA NAND chip but used only half of the space.
+
+config PARTITIONS_FOR_4GB_NAND
+	bool "4GB"
+	help
+	   The NPM801 tablets and the original UR-BOARDS are capable of
+	   using 4 Gbytes of partition space. These normally have a 4GB
+	   MT29F32G08CBACA NAND chip.
+
+config PARTITIONS_FOR_8GB_NAND
+	bool "8GB"
+	help
+	   The production run of the UR-Boards supports up to 8 Gbytes
+	   of partition space. These use a 8 Gbyte MT29F64G08CBAAA chip.
+endchoice

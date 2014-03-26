@@ -15,6 +15,7 @@ typedef struct _PPartition PPartition;
 typedef struct _PPartArray PPartArray;
 #define MUL_PARTS	4
 typedef struct _mul_parts mul_parts;
+
 struct _mul_parts{
 	int startblockID;
 	int totalblocks;
@@ -25,10 +26,12 @@ struct badblockhandle {
 	unsigned int *pt_badblock_info;
 	unsigned int *pt_availableblockid;
 };
+
 struct virt2phy_page {
 	int blm;
 	unsigned short _2kPerPage;
 };
+
 struct _PPartition {
 	const char *name;
 	int startblockID;
