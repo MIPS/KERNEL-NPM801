@@ -116,7 +116,8 @@ void check_uart(void)
 {
 	volatile char *base = (volatile char*)CKSEG1ADDR(UART0_IOBASE);
 	int i;
-	for(i=0; i<4; i++) {
+
+	for(i=0; i<5; i++) {
 		if(base[OFF_LCR])
 			break;
 		base += UART_OFF;

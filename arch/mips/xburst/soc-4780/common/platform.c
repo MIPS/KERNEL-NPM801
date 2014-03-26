@@ -24,7 +24,10 @@
 #include <mach/jzsnd.h>
 #include <mach/jznand.h>
 
-/* device IO define array */
+/*
+ * Device IO define array; processed by setup_gpio_pins()
+ * in arch/mips/xburst/soc-4780/common/gpio.c.
+ */
 struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_MMC0_JZ4780_PA_4BIT
 	MSC0_PORTA_4BIT,
@@ -86,9 +89,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_SERIAL_JZ47XX_UART3
 	UART3_JTAG,
 #endif
-#ifdef CONFIG_SERIAL_JZ47XX_UART4
-	UART4_PORTC,
-#endif
+
+/* Do UART4 after LCD as they share bits in GPIO PORT C */
+
 #ifdef CONFIG_NEMC_SRAM_8BIT
 	SRAM_CS5_PORTAB_BIT8,
 #endif
@@ -126,11 +129,34 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_SOUND_PCM_JZ47XX
 	PCM_PORTD,
 #endif
+
 #ifndef CONFIG_DISABLE_LVDS_FUNCTION
 	DISABLE_LCD_PORTC,
 #else
 	LCD_PORTC,
 #endif
+
+/*
+ * Doing UART4 after CONFIG_DISABLE_LVDS_FUNCTION;
+ * which changes all of the bits for PORT C.
+ * UART4 uses bits 10 and 20 (Table 28-3).
+ *
+ * NOTE: Both DISABLE_LCD_PORTC and LCD_PORTC
+ *       modify the same bits as UART4 and
+ *	 LCD Low voltage  Differential Signaling (LVDS)
+ *	 seems to be an LCD option. Further, the LCD
+ *	 is mingled with the frame-buffer, so even on
+ *	 the UR-BOARD the HDMI seems to require the
+ *	 LCD/frame-buffer code.
+ *
+ *       No obvious way to prevent UART4 and LCD aliasing
+ *	 other than just doing UART4 after the LCD/LVDS
+ *	 GPIO register bit twiddling.
+ */
+#ifdef CONFIG_SERIAL_JZ47XX_UART4
+        UART4_PORTC,
+#endif
+
 	HDMI_PORTF,
 
 #ifdef CONFIG_JZ_PWM_GPIO_E0
