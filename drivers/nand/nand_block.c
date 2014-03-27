@@ -356,6 +356,7 @@ static int handle_req_thread(void *data)
 		set_current_state(TASK_RUNNING);
 
 		while(req) {
+			err = 0;
 #ifdef DEBUG_REQ
 			printk("%s: req = %p, start sector = %d, total = %d, buffer = %p\n",
 			       (rq_data_dir(req) == READ)? "READ":"WRITE",
@@ -376,7 +377,7 @@ static int handle_req_thread(void *data)
 
 			if ((ndisk->sl_len <= 0)) {
 				printk("nand_rq_map_sl error, ndisk->sl_len = %d\n", ndisk->sl_len);
-				break;
+				err = -EIO;
 			}
 #ifdef DEBUG_STLIST
 			dump_sectorlist(ndisk->sl);
@@ -394,7 +395,7 @@ static int handle_req_thread(void *data)
 
 			if (ret < 0) {
 				printk("nand_block: NM %s error!\n", (rq_data_dir(req) == READ)? "read" : "write");
-				break;
+				err = -EIO;
 			}
 
 			spin_lock_irq(q->queue_lock);
@@ -762,7 +763,7 @@ static int nand_block_probe(struct device *dev)
 
 	if (lpt->pt->mode == ZONE_MANAGER)
 		printk("INFO(nand block): pt[%s] capacity is [%d]MB\n", lpt->pt->name,
-		       div_s64_32((ndisk->capacity * ndisk->sectorsize), (1024 * 1024)));
+		       div_s64_32(((unsigned long long)ndisk->capacity * ndisk->sectorsize), (1024 * 1024)));
 
 	ndisk->disk->major = nand_block.major;
 	ndisk->disk->first_minor = cur_minor;

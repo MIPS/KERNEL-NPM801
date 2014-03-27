@@ -14,7 +14,8 @@ enum nandmanager_cmd {
 };
 
 /*public*/
-int NandManger_Init(void);
+int NandManger_Init(void);					/* NOTE: No args in V1.4.2 */
+
 void NandManger_DeInit(int handle);
 
 int NandManger_getPartition(int handle, LPartition** pt);

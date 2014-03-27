@@ -63,6 +63,11 @@ NAND_FLASH_DEV nand_flash_chips[] =
 	1024*1024,	224,	3,	100,	4096,		1024,	24,	8,	0,	MICRON_NAND,
 	0x03,		0x02,		0x01,		0x00,           0x04},
 
+	{"MICRON_MT29F32G08CBADAWP", 	0x2C44,		0x00A94B44,    	1,	1,
+	 10, 	5,	12,	12,  	100,    60, 	200,     20,    100,    70,     0,       8192, 
+	 2048*1024,	744, 	3,	74,   	2048,		1024,	 40,	8,	0,	MICRON_NAND,
+	 0x03,		0x02,		0x01,		0x00,           0x04},
+
 	{"HYNIX_HY27UBG8T2BTR",		0xADD7,		0xC374DA94,	2,	1,
 	10,	5,	15,	15,	100,	80,	200,	20,	100,	200,	0,	8192,
 	2048*1024,	640,	3,	48,	2048,		1024,	40,	8,	0,	HYNIX_NAND,
@@ -81,6 +86,16 @@ NAND_FLASH_DEV nand_flash_chips[] =
 	{"HYNIX_H27UCG8T2ATR",		0xADDE,		0xC474DA94,	2,	1,
 	10,	5,	12,	12,	100,	80,	200,	20,	100,	200,	0,	8192,
 	2048*1024,	640,	3,	120,	4180,		1024,	40,	8,	0,	NEW_HYNIX_NAND,
+	0,		0,		0,		0,              0},
+
+	{"HYNIX_H27UAG8T2BTR",		0xADD5,		0x42749A94,	2,	1,
+	12,	5,	12,	12,	100,	100,	200,	25,	100,	200,	0,	8192,
+	2048*1024,	448,	3,	120,	1024,		1024,	24,	8,	0,	NEW_HYNIX_NAND,
+	0,		0,		0,		0,              0},
+
+	{"HYNIX_H9DA4GH2GJBMCR-4EM",	0xADBC,		0x00565590,	2,	1,
+	25,	10,	25,	25,	100,	60,	200,	20,	100,	100,	0,	2048,
+	2048*64,	128,	3,	80,	4096,		1024,	8,	16,	0,	DONT_RETRY,
 	0,		0,		0,		0,              0},
 
 	{"MICRON_MT29F128G08CFABA",	0x2C64,		0x00A94B44,	2,	1,
@@ -264,7 +279,6 @@ NAND_FLASH_DEV *nand_scan_table(unsigned char *nand_id)
 	
 	dev_id = ((nand_id[0] << 8) | nand_id[1]);
 	ext_id = ((nand_id[4] << 16) | (nand_id[3] << 8) | nand_id[2]);
-	dprintf("INFO: Nand Flash dev_id:0x%x ext_id:0x%x\n", dev_id, ext_id);
 	/* Lookup the flash id */
 	for (i = 0; i < flash_num; i++)
 	{
@@ -277,7 +291,9 @@ NAND_FLASH_DEV *nand_scan_table(unsigned char *nand_id)
 	
 	if (index == -1) 
 	{
-		dprintf("DEBUG nand: No NAND Found");
+		eprintf("Error: Nand Flash dev_id:0x%x ext_id:0x%x\n", dev_id, ext_id);
+		eprintf("Error:%s[%d] No NAND Found, because the nand's id is wrong or we can't support this nand\n",
+													__func__,__LINE__);
 		return 0;
 	}
 	
