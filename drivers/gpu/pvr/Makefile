@@ -1,5 +1,5 @@
 ccflags-y = -DLINUX -D__linux__ -DANDROID -DPVR_BUILD_DIR="\"xb4780_android\""
-ccflags-y += -Idrivers/gpu/pvr -Idrivers/gpu/pvr/xb47 -Idrivers/video/jz4780-fb
+ccflags-y += -Idrivers/gpu/pvr -Idrivers/gpu/pvr/xb4780 -Idrivers/video/jz4780-fb
 
 ccflags-y += \
 	-DSUPPORT_SGX \
@@ -17,7 +17,7 @@ ccflags-y += \
 	-DPVR_LINUX_TIMERS_USING_WORKQUEUES \
 	-DSYS_CUSTOM_POWERLOCK_WRAP \
 	-DSUPPORT_MEMINFO_IDS \
-	-DDISPLAY_CONTROLLER=xblfb \
+	-DDISPLAY_CONTROLLER=dc_xblfb \
         -DPVR_LDM_PLATFORM_PRE_REGISTERED \
 	-DPVRSRV_MODNAME="\"pvrsrvkm\"" \
 	-DPVR_LDM_DRIVER_REGISTRATION_NAME="\"pvrsrvkm\"" \
@@ -96,8 +96,8 @@ pvrsrvkm-y := \
 	bridged_pvr_bridge.o \
 	perproc.o \
 	lists.o \
-	xb47/sysconfig.o \
-	xb47/sysutils.o \
+	xb4780/sysconfig.o \
+	xb4780/sysutils.o \
 	sgx/bridged_sgx_bridge.o \
 	sgx/sgxinit.o \
 	sgx/sgxpower.o \

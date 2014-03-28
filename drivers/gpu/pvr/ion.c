@@ -132,6 +132,7 @@ PVRSRV_ERROR IonInit(IMG_VOID)
 	return PVRSRV_OK;
 }
 
+
 IMG_VOID IonDeinit(IMG_VOID)
 {
 	gpsIonDev = IMG_NULL;
@@ -142,6 +143,7 @@ IMG_VOID IonDeinit(IMG_VOID)
 /* "Reference" ion implementation */
 
 #include "../drivers/gpu/ion/ion_priv.h"
+#include <linux/version.h>
 
 static struct ion_heap **gapsIonHeaps;
 struct ion_device *gpsIonDev;
@@ -158,6 +160,9 @@ static struct ion_platform_data gsGenericConfig =
 {
 	.nr = 3,
 	.heaps =
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,39))
+	(struct ion_platform_heap [])
+#endif
 	{
 		{
 			.type = ION_HEAP_TYPE_SYSTEM_CONTIG,
