@@ -83,6 +83,7 @@ static IMG_BOOL PowerSupplyIsOFF(IMG_VOID)
 
 static IMG_VOID TurnOffPowerSupply(IMG_VOID)
 {
+#if !defined(CONFIG_BOARD_URBOARD)
     if(!PowerSupplyIsOFF())
     {
         // Wait for GPU IDLE
@@ -94,6 +95,7 @@ static IMG_VOID TurnOffPowerSupply(IMG_VOID)
         do {
         } while (!(inl(0x10000004) & (1 << 25)));
     }
+#endif
 }
 
 static IMG_VOID TurnOnPowerSupply(IMG_VOID)
