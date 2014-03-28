@@ -1,3 +1,6 @@
+/*
+ * SD Multimedia-Card Configuration information for URBOARD.
+ */
 #include <linux/mmc/host.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
@@ -8,7 +11,8 @@
 #include <mach/jzmmc.h>
 #include "urboard.h"
 
-#define GPIO_WIFI_RST_N			GPIO_PF(7)
+#define GPIO_WIFI_RST_N			GPIO_PF(7)	/* WL_REG_ON/WL_RST_N on sheet 8 of schematic */
+#define GPIO_WLAN_PW_EN			GPIO_PB(19)	/* See sheet 2 of schematic */
 
 #define KBYTE				(1024LL)
 #define MBYTE				((KBYTE)*(KBYTE))
@@ -18,9 +22,20 @@
 
 static struct wifi_data			iw8101_data;
 
+static int clk_32k = 0;
+static int wl_pw_en = 0;
+static int power_en;			/* Initialized by iw8101_wlan_init() */
+
 int iw8101_wlan_init(void);
 #ifndef CONFIG_NAND_JZ4780
+
 #ifdef CONFIG_MMC0_JZ4780
+
+/*
+ * This SD MultiMedia Card table is accessed by the other two tables below
+ * it by jzmmc_partitions_show() in  drivers/mmc/host/jz4780_mmc.c via
+ * dev->platform_data->>recovery_info->partition_info.
+ */
 struct mmc_partition_info urboard_inand_partition_info[] = {
 	[0] = {"mbr",           0,       512, 0}, 	//0 - 512KB
 	[1] = {"xboot",		0,     2*MBYTE, 0}, 	//0 - 2MB
@@ -58,6 +73,7 @@ struct jzmmc_platform_data urboard_inand_pdata = {
 	.private_init			= NULL,
 };
 #endif
+
 #ifdef CONFIG_MMC2_JZ4780
 /*
  * WARING:
@@ -87,7 +103,9 @@ struct jzmmc_platform_data urboard_tf_pdata = {
 	.private_init			= NULL,
 };
 #endif
-#else
+
+#else /* defined(CONFIG_NAND_JZ4780) */
+
 #ifdef CONFIG_MMC0_JZ4780
 /*
  * WARING:
@@ -117,7 +135,7 @@ struct jzmmc_platform_data urboard_tf_pdata = {
 	.private_init			= NULL,
 };
 #endif
-#endif
+#endif /* !defined(CONFIG_NAND_JZ4780) */
 
 #ifdef CONFIG_MMC1_JZ4780
 struct jzmmc_platform_data urboard_sdio_pdata = {
@@ -161,7 +179,56 @@ struct jzmmc_platform_data urboard_sdio_pdata = {
 #define PXDSS		0x84   /* Port Drive Strength set Register */
 #define PXDSC		0x88   /* Port Drive Strength clear Register */
 
-static unsigned int gpio_bakup[4];
+//static unsigned int gpio_bakup[4];
+
+/*
+ * Hooks for Bluetooth power driver with rfkill interface and bluetooth host wakeup support.
+ * See bt-power.c
+ */
+void clk_32k_on(void)
+{
+	jzrtc_enable_clk32k();
+	clk_32k++;
+	if (clk_32k > 2){
+		clk_32k = 2;
+	}
+	printk("cljiang---clk_32k_on:num = %d\n",clk_32k);
+}
+
+void clk_32k_off(void)
+{
+	clk_32k--;
+	if(clk_32k < 0){
+		clk_32k = 0;
+	}
+	if(clk_32k == 0){
+		jzrtc_disable_clk32k();
+	}
+	printk("cljiang---clk_32k_off:num = %d\n",clk_32k);
+}
+
+void wlan_pw_en_enable(void)
+{
+	gpio_set_value(power_en,1);
+	wl_pw_en++;
+	if(wl_pw_en > 2){
+		wl_pw_en = 2;
+	}
+	printk("cljiang---wl_pw_en = %d\n",wl_pw_en);
+}
+
+void wlan_pw_en_disable(void)
+{
+	wl_pw_en--;
+	if(wl_pw_en < 0){
+		wl_pw_en = 0;
+	}
+	if(wl_pw_en == 0){
+		gpio_set_value(power_en,0);
+	}
+	printk("cljiang---wl_pw_en = %d\n",wl_pw_en);
+}
+
 
 int iw8101_wlan_init(void)
 {
@@ -169,6 +236,8 @@ int iw8101_wlan_init(void)
 	struct regulator *power;
 	int reset;
 
+	printk("cljiang-----enter iw8101_wlan_init\n");
+/*
 	gpio_bakup[0] = readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
 	gpio_bakup[2] = readl((void *)(0xb0010300 + PXPAT1)) & 0x1f00000;
@@ -177,7 +246,7 @@ int iw8101_wlan_init(void)
 	writel(0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(0x1f00000, (void *)(0xb0010300 + PXMSKS));
 	writel(0x1f00000, (void *)(0xb0010300 + PXPAT1S));
-
+*/
 	power = regulator_get(NULL, "vwifi");
 	if (IS_ERR(power)) {
 		pr_err("wifi regulator missing\n");
@@ -194,13 +263,29 @@ int iw8101_wlan_init(void)
 	} else {
 		gpio_direction_output(reset, 1);
 	}
-	 iw8101_data.wifi_reset = reset;
+	iw8101_data.wifi_reset = reset;
+
+	power_en = GPIO_WLAN_PW_EN;
+	if (gpio_request(GPIO_WLAN_PW_EN, "wlan_pw_en")) {
+		printk("cljiang---no wlan_pw_en pin available\n");
+		pr_err("no wlan_pw_en pin available\n");
+		regulator_put(power);
+		return -EINVAL;
+	} else {
+		gpio_direction_output(power_en, 0);
+		//gpio_set_value(power_en,1);
+	}
+
 
 	wake_lock_init(wifi_wake_lock, WAKE_LOCK_SUSPEND, "wifi_wake_lock");
+	printk("cljiang-----exit iw8101_wlan_init\n");
 
 	return 0;
 }
 
+/*
+ * called from drivers/net/wireless/bcmdhd/dhd_custom_gpio.c
+ */
 int IW8101_wlan_power_on(int flag)
 {
 	static struct wake_lock	*wifi_wake_lock = &iw8101_data.wifi_wake_lock;
@@ -218,7 +303,7 @@ int IW8101_wlan_power_on(int flag)
 	return -ENODEV;
 start:
 	pr_debug("wlan power on:%d\n", flag);
-
+/*
 	writel(gpio_bakup[0] & 0x1f00000, (void *)(0xb0010300 + PXINTS));
 	writel(~gpio_bakup[0] & 0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(gpio_bakup[1] & 0x1f00000, (void *)(0xb0010300 + PXMSKS));
@@ -227,12 +312,15 @@ start:
 	writel(~gpio_bakup[2] & 0x1f00000, (void *)(0xb0010300 + PXPAT1C));
 	writel(gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0S));
 	writel(~gpio_bakup[3] & 0x1f00000, (void *)(0xb0010300 + PXPAT0C));
-
-	jzrtc_enable_clk32k();
+*/
+//	jzrtc_enable_clk32k();/*clk32k*/
+	clk_32k_on();
+	printk("cljiang------32k-----enable\n");
 	msleep(200);
 
 	switch(flag) {
 		case RESET:
+			wlan_pw_en_enable();
 			regulator_enable(power);
 			jzmmc_clk_ctrl(1, 1);
 
@@ -245,8 +333,9 @@ start:
 			break;
 
 		case NORMAL:
+			wlan_pw_en_enable();
 			regulator_enable(power);
-
+printk("cljiang-----NORMAL:regulator_enable\n");
 			gpio_set_value(reset, 0);
 			msleep(200);
 
@@ -268,6 +357,7 @@ int IW8101_wlan_power_off(int flag)
 	struct regulator *power = iw8101_data.wifi_power;
 	int reset = iw8101_data.wifi_reset;
 
+printk("cljiang---IW8101_wlan_power_off\n");
 	if (wifi_wake_lock == NULL)
 		pr_warn("%s: invalid wifi_wake_lock\n", __func__);
 	else if (power == NULL)
@@ -284,6 +374,7 @@ start:
 			gpio_set_value(reset, 0);
 
 			regulator_disable(power);
+			wlan_pw_en_disable();
 			jzmmc_clk_ctrl(1, 0);
 			break;
 
@@ -291,6 +382,7 @@ start:
 			gpio_set_value(reset, 0);
 
 			regulator_disable(power);
+			wlan_pw_en_disable();
 
  			jzmmc_manual_detect(1, 0);
 			break;
@@ -298,8 +390,10 @@ start:
 
 	wake_unlock(wifi_wake_lock);
 
-	jzrtc_disable_clk32k();
+	clk_32k_off();
+//	jzrtc_disable_clk32k();/*clk32k off*/
 
+/*
 	gpio_bakup[0] = (unsigned int)readl((void *)(0xb0010300 + PXINT)) & 0x1f00000;
 	gpio_bakup[1] = (unsigned int)readl((void *)(0xb0010300 + PXMSK)) & 0x1f00000;
 	gpio_bakup[2] = (unsigned int)readl((void *)(0xb0010300 + PXPAT1)) & 0x1f00000;
@@ -308,9 +402,17 @@ start:
 	writel(0x1f00000, (void *)(0xb0010300 + PXINTC));
 	writel(0x1f00000, (void *)(0xb0010300 + PXMSKS));
 	writel(0x1f00000, (void *)(0xb0010300 + PXPAT1S));
-
+*/
 	return 0;
 }
 
 EXPORT_SYMBOL(IW8101_wlan_power_on);
 EXPORT_SYMBOL(IW8101_wlan_power_off);
+
+#ifdef CONFIG_BCM4330_RFKILL
+/* These functions are accessed by bt-power.c */
+EXPORT_SYMBOL(clk_32k_on);
+EXPORT_SYMBOL(clk_32k_off);
+EXPORT_SYMBOL(wlan_pw_en_enable);
+EXPORT_SYMBOL(wlan_pw_en_disable);
+#endif

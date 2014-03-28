@@ -36,6 +36,9 @@ static struct regulator *power;
 
 static DEFINE_SPINLOCK(bt_power_lock);
 
+/*
+ * Defined in ${board}_mmc.c (Ex: urboard_mmc.c and npm801_mmc.c).
+ */
 extern void wlan_pw_en_enable(void);
 extern void wlan_pw_en_disable(void);
 extern void clk_32k_on (void);
