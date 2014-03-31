@@ -16,7 +16,6 @@
 #include <linux/proc_fs.h>
 #include <linux/ioport.h>
 
-
 #include <soc/cpm.h>
 #include <soc/base.h>
 #include <soc/extal.h>
@@ -40,21 +39,31 @@ void __init setup_priority(unsigned int base, unsigned int target, unsigned int 
 
 void __init cpm_reset(void)
 {
+
+/*
+ * Skip Power Management for UR-BOARD for now.
+ * Will likely switch to using the new
+ *	arch/mips/xburst/soc-4780/common/jzcpm_pwc.c code
+ * in the future.
+ */
+#if !defined(CONFIG_BOARD_URBOARD)
 #ifndef CONFIG_FPGA_TEST
 	unsigned long clkgr0 = cpm_inl(CPM_CLKGR0);
 	unsigned long clkgr1 = cpm_inl(CPM_CLKGR1);
 	unsigned long lcr = cpm_inl(CPM_LCR);
 
-#if 1
 	cpm_outl(clkgr1 & ~(1<<2|1<<4),CPM_CLKGR1);
 	mdelay(1);
+
 	cpm_outl(clkgr0 & ~(1<<26|1<<27|1<<28),CPM_CLKGR0);
 	mdelay(1);
+
 	cpm_outl(0x27f87ffe,CPM_CLKGR0);
 	mdelay(1);
+
 	cpm_outl(0xfffffdff,CPM_CLKGR1);
 	mdelay(1);
-#endif
+
 	cpm_outl(lcr | CPM_LCR_PD_MASK | 0x8f<<8,CPM_LCR);
 	while((cpm_inl(CPM_LCR) & (0x7<<24)) != (0x7<<24));
 
@@ -62,12 +71,15 @@ void __init cpm_reset(void)
 	cpm_outl(16,CPM_PSWC1ST);
 	cpm_outl(24,CPM_PSWC2ST);
 	cpm_outl(8,CPM_PSWC3ST);
-#endif
+#endif /* CONFIG_FPGA_TEST */
+#endif /* !CONFIG_BOARD_URBOARD */
+
 }
 
 int __init setup_init(void)
 {
 	cpm_reset();
+
         // CPU on AHB0 & AHB2
         /* If CPU0_PRIO=3, may cause CIM overflow and IPU underrun. so set CPU0_PRIO=0, 2013-02-01 */
         /* If CPU0_PRIO=0, may cause touch panel "i2c i2c-1: --I2C irq read timeout", so rollback CPU0_PRIO=3. 2013-02-04 */
@@ -76,6 +88,7 @@ int __init setup_init(void)
 
 	return 0;
 }
+
 void __cpuinit jzcpu_timer_setup(void);
 void __cpuinit jz_clocksource_init(void);
 void __init init_all_clk(void);
